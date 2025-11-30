@@ -1,4 +1,4 @@
-# app.py
+
 from flask import Flask, request, jsonify
 import joblib
 import pandas as pd
@@ -6,7 +6,7 @@ import os
 
 app = Flask(__name__)
 
-# Cargar modelo y columnas
+
 model = joblib.load(os.path.join('model', 'tourist_model.pkl'))
 model_columns = joblib.load(os.path.join('model', 'model_columns.pkl'))
 
@@ -17,24 +17,37 @@ def home():
         "instructions": "Envía un POST a /predict con JSON que contenga: age, GImg1, PImg1, Tense - relaxed, Hostile - friendly, sex_M"
     }
 
-@app.route('/predict', methods=['POST'])
+@app.route('/predict', methods=['GET', 'POST'])
 def predict():
+    if request.method == 'GET':
+        return {
+            "message": "¡Hola! Esta API predice el tipo de turista basado en señales no verbales.",
+            "instructions": "Envía una solicitud POST a esta URL con un JSON que contenga: age, GImg1, PImg1, Tense - relaxed, Hostile - friendly, sex_M",
+            "example": {
+                "age": 35,
+                "GImg1": 2,
+                "PImg1": 2,
+                "Tense - relaxed": 5,
+                "Hostile - friendly": 6,
+                "sex_M": 0
+            }
+        }
+    
     try:
         data = request.get_json()
         if not data:
             return jsonify({"error": "Se requiere cuerpo JSON"}), 400
 
-        # Convertir a DataFrame y alinear columnas
         input_df = pd.DataFrame([data])
         input_df = input_df.reindex(columns=model_columns, fill_value=0)
 
-        # Predecir
-        pred = int(model.predict(input_df)[0])
-        prob = float(model.predict_proba(input_df)[0].max())
+        prediction = model.predict(input_df)[0]
+        probabilities = model.predict_proba(input_df)[0]
+        confidence = float(probabilities.max())
 
         return jsonify({
-            "type_of_client": pred,
-            "confidence_percent": round(prob * 100, 2)
+            "type_of_client": int(prediction),
+            "confidence_percent": round(confidence * 100, 2)
         })
 
     except Exception as e:
